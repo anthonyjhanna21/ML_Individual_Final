@@ -59,6 +59,14 @@ The congestion variables are engineered from scheduled flight volume only, so th
 
 My individual model is Logistic Regression, implemented with `SGDClassifier(loss="log_loss")`. This keeps the model comparable to standard Logistic Regression while making it much faster on the larger airline dataset.
 
+## Model Choice Justification
+
+I chose **Logistic Regression** because our prediction is a simple yes/no outcome: whether a flight arrives 15 minutes or more late. It is a good fit because it is easy to explain, runs quickly, and gives us a strong baseline to compare against Prince's and Alex's more advanced models.
+
+Logistic Regression also helps us understand which features are connected to delays, such as airport route, airline, scheduled time, day of week, and congestion. Since my model focuses on the six-airport route network, it gives us a cleaner and more focused version of the delay prediction problem.
+
+Overall, this model is useful because it is practical, interpretable, and fair to compare against Random Forest and XGBoost/Gradient Boosting.
+
 The preprocessing pipeline handles:
 
 | Data Type | Processing |
