@@ -289,15 +289,12 @@ print("Categorical columns:", categorical_cols)
 
 
 # ## 7. Model Choice Justification
-# Fill this in for your report after you run the model.
 # 
-# Suggested direction:
-# - Logistic Regression is a strong baseline for binary classification.
-# - It is interpretable and easy to explain.
-# - It lets us see direction and relative importance of features through coefficients.
-# - It works well as a comparison model against tree-based methods like Random Forest and XGBoost.
-# - This version tests whether a focused six-airport route network can be modeled more cleanly than the full national dataset.
-# - Congestion features are included because they use scheduled flight volume and do not rely on post-flight outcome information.
+# I chose **Logistic Regression** because our prediction is a simple yes/no outcome: whether a flight arrives 15 minutes or more late. It is a good fit because it is easy to explain, runs quickly, and gives us a strong baseline to compare against Prince's and Alex's more advanced models.
+# 
+# Logistic Regression also helps us understand which features are connected to delays, such as airport route, airline, scheduled time, day of week, and congestion. Since my model focuses on the six-airport route network, it gives us a cleaner and more focused version of the delay prediction problem.
+# 
+# Overall, this model is useful because it is practical, interpretable, and fair to compare against Random Forest and XGBoost/Gradient Boosting.
 # 
 
 # ## 8. Baseline Logistic Regression Model
