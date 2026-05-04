@@ -23,6 +23,7 @@ The notebook filters the data so that both the departure airport and arrival air
 | `anthony_logistic_regression_6_airports.py` | Python script version of the notebook |
 | `logistic_flight_delay_model.sav` | Saved trained Logistic Regression pipeline |
 | `logistic_feature_names.sav` | Saved list of model feature names |
+| `logistic_decision_threshold.sav` | Saved tuned probability threshold for delayed-flight classification |
 | `requirements.txt` | Python packages needed to run the notebook/script |
 
 ## Predictive Question
@@ -75,17 +76,32 @@ The preprocessing pipeline handles:
 | Categorical features | Most-frequent imputation and one-hot encoding |
 | Target imbalance | Balanced class weights |
 
+## Model Tuning
+
+Because Logistic Regression does not use tree-based settings like `n_estimators`, `max_depth`, or learning rate, tuning focused on the parameters that fit this model: regularization strength, penalty type, class weighting, and the decision threshold for labeling a flight as delayed.
+
+The goal of tuning was to improve the balance between precision and recall, especially because delayed flights are the minority class.
+
+The best tuned setting selected in the notebook was:
+
+| Parameter | Selected Value |
+|---|---:|
+| `alpha` | 0.0005 |
+| `penalty` | `l2` |
+| `class_weight` | `balanced` |
+| Decision threshold | 0.50 |
+
 ## Results
 
 The model was evaluated on a held-out 20% test set.
 
 | Metric | Score |
 |---|---:|
-| Accuracy | 0.5730 |
-| Precision | 0.2629 |
-| Recall | 0.6188 |
-| F1 Score | 0.3691 |
-| ROC-AUC | 0.6217 |
+| Accuracy | 0.5723 |
+| Precision | 0.2630 |
+| Recall | 0.6206 |
+| F1 Score | 0.3694 |
+| ROC-AUC | 0.6209 |
 
 The model is better at identifying delayed flights than a simple baseline, but it still creates many false positives. This makes sense because arrival delays are difficult to predict using schedule and route data alone. Weather, crew availability, aircraft maintenance, and real-time airport conditions would likely improve performance.
 

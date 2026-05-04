@@ -334,10 +334,144 @@ print(f"F1 Score : {f1_score(y_test, y_pred_lr):.4f}")
 print(f"ROC-AUC  : {roc_auc_score(y_test, y_prob_lr):.4f}")
 
 
-# ## 9. Confusion Matrix
+# ## 9. Lightweight Hyperparameter Tuning
+# 
+# Because Logistic Regression does not have tree-based settings like `n_estimators` or `max_depth`, tuning focuses on regularization strength, penalty type, class weighting, and the probability threshold used to classify a flight as delayed.
 # 
 
 # In[10]:
+
+
+TUNE_SIZE = 120_000
+THRESHOLDS = [0.35, 0.40, 0.45, 0.50, 0.55]
+
+if len(X_train) > TUNE_SIZE:
+    X_tune, _, y_tune, _ = train_test_split(
+        X_train, y_train,
+        train_size=TUNE_SIZE,
+        stratify=y_train,
+        random_state=RANDOM_STATE
+    )
+else:
+    X_tune = X_train.copy()
+    y_tune = y_train.copy()
+
+X_tune_train, X_tune_val, y_tune_train, y_tune_val = train_test_split(
+    X_tune, y_tune,
+    test_size=0.25,
+    stratify=y_tune,
+    random_state=RANDOM_STATE
+)
+
+tuning_configs = [
+    {'alpha': 0.0001, 'penalty': 'l2', 'class_weight': 'balanced'},
+    {'alpha': 0.0005, 'penalty': 'l2', 'class_weight': 'balanced'},
+    {'alpha': 0.0010, 'penalty': 'l2', 'class_weight': 'balanced'},
+    {'alpha': 0.0005, 'penalty': 'l1', 'class_weight': 'balanced'},
+    {'alpha': 0.0005, 'penalty': 'elasticnet', 'class_weight': 'balanced'},
+    {'alpha': 0.0005, 'penalty': 'l2', 'class_weight': None},
+]
+
+tuning_rows = []
+for config in tuning_configs:
+    candidate_pipeline = Pipeline(steps=[
+        ('preprocessor', preprocessor),
+        ('model', SGDClassifier(
+            loss='log_loss',
+            alpha=config['alpha'],
+            penalty=config['penalty'],
+            l1_ratio=0.15,
+            max_iter=8,
+            tol=1e-3,
+            class_weight=config['class_weight'],
+            average=True,
+            early_stopping=True,
+            validation_fraction=0.10,
+            n_iter_no_change=2,
+            n_jobs=-1,
+            random_state=RANDOM_STATE
+        ))
+    ])
+
+    candidate_pipeline.fit(X_tune_train, y_tune_train)
+    val_prob = candidate_pipeline.predict_proba(X_tune_val)[:, 1]
+    val_auc = roc_auc_score(y_tune_val, val_prob)
+
+    for threshold in THRESHOLDS:
+        val_pred = (val_prob >= threshold).astype(int)
+        tuning_rows.append({
+            'alpha': config['alpha'],
+            'penalty': config['penalty'],
+            'class_weight': str(config['class_weight']),
+            'threshold': threshold,
+            'accuracy': accuracy_score(y_tune_val, val_pred),
+            'precision': precision_score(y_tune_val, val_pred, zero_division=0),
+            'recall': recall_score(y_tune_val, val_pred),
+            'f1': f1_score(y_tune_val, val_pred),
+            'roc_auc': val_auc
+        })
+
+tuning_results = pd.DataFrame(tuning_rows).sort_values(
+    ['f1', 'roc_auc', 'recall'],
+    ascending=False
+)
+
+print('Top tuning results ranked by F1 score:')
+print(tuning_results.head(10).round(4).to_string(index=False))
+
+
+# ## 10. Tuned Logistic Regression Model
+# 
+# The best tuning setting is refit on the full training set, then evaluated on the held-out test set. The rest of the notebook uses this tuned model.
+# 
+
+# In[11]:
+
+
+best_row = tuning_results.iloc[0]
+best_class_weight = None if best_row['class_weight'] == 'None' else best_row['class_weight']
+best_threshold = float(best_row['threshold'])
+
+lr_pipeline = Pipeline(steps=[
+    ('preprocessor', preprocessor),
+    ('model', SGDClassifier(
+        loss='log_loss',
+        alpha=float(best_row['alpha']),
+        penalty=best_row['penalty'],
+        l1_ratio=0.15,
+        max_iter=8,
+        tol=1e-3,
+        class_weight=best_class_weight,
+        average=True,
+        early_stopping=True,
+        validation_fraction=0.10,
+        n_iter_no_change=2,
+        n_jobs=-1,
+        random_state=RANDOM_STATE
+    ))
+])
+
+lr_pipeline.fit(X_train, y_train)
+
+y_prob_lr = lr_pipeline.predict_proba(X_test)[:, 1]
+y_pred_lr = (y_prob_lr >= best_threshold).astype(int)
+
+print('=== Tuned Logistic Regression Results ===')
+print('Best tuning settings:')
+print(best_row[['alpha', 'penalty', 'class_weight', 'threshold']].to_string())
+print()
+print(classification_report(y_test, y_pred_lr, target_names=['On Time', 'Delayed']))
+print(f"Accuracy : {accuracy_score(y_test, y_pred_lr):.4f}")
+print(f"Precision: {precision_score(y_test, y_pred_lr, zero_division=0):.4f}")
+print(f"Recall   : {recall_score(y_test, y_pred_lr):.4f}")
+print(f"F1 Score : {f1_score(y_test, y_pred_lr):.4f}")
+print(f"ROC-AUC  : {roc_auc_score(y_test, y_prob_lr):.4f}")
+
+
+# ## 11. Confusion Matrix
+# 
+
+# In[12]:
 
 
 cm = confusion_matrix(y_test, y_pred_lr)
@@ -353,10 +487,10 @@ plt.tight_layout()
 plt.show()
 
 
-# ## 10. ROC Curve
+# ## 12. ROC Curve
 # 
 
-# In[11]:
+# In[13]:
 
 
 fpr, tpr, _ = roc_curve(y_test, y_prob_lr)
@@ -375,11 +509,11 @@ plt.tight_layout()
 plt.show()
 
 
-# ## 11. Coefficient Interpretation
+# ## 13. Coefficient Interpretation
 # This is one of the advantages of Logistic Regression.
 # 
 
-# In[12]:
+# In[14]:
 
 
 feature_names = lr_pipeline.named_steps['preprocessor'].get_feature_names_out()
@@ -403,15 +537,17 @@ plt.tight_layout()
 plt.show()
 
 
-# ## 12. Save Artifacts
+# ## 14. Save Artifacts
 # 
 
-# In[13]:
+# In[15]:
 
 
 joblib.dump(lr_pipeline, 'logistic_flight_delay_model.sav')
 joblib.dump(available_candidates, 'logistic_feature_names.sav')
+joblib.dump(best_threshold, 'logistic_decision_threshold.sav')
 
 print("Saved: logistic_flight_delay_model.sav")
 print("Saved: logistic_feature_names.sav")
+print("Saved: logistic_decision_threshold.sav")
 
